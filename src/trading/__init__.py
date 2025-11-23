@@ -1,0 +1,2 @@
+"""Trading strategy implementation module."""
+
