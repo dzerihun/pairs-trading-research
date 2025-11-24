@@ -58,7 +58,11 @@ class DataCollector:
         url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
         
         try:
-            response = requests.get(url, timeout=10)
+            # Add User-Agent header to avoid 403 Forbidden error
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.content, 'html.parser')

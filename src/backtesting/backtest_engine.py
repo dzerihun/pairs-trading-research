@@ -81,6 +81,8 @@ class BacktestEngine:
         
         # Filter date range
         start_date, end_date = date_range
+        start_date = pd.to_datetime(start_date)
+        end_date = pd.to_datetime(end_date)
         price1 = prices.loc[start_date:end_date, ticker1]
         price2 = prices.loc[start_date:end_date, ticker2]
         
@@ -340,7 +342,7 @@ class BacktestEngine:
         date_range: Tuple[str, str]
     ) -> pd.Series:
         """
-        Calculate daily portfolio returns.
+        Calculate daily portfolio returns based on cumulative P&L.
         
         Args:
             trades_df: DataFrame with all trades
@@ -363,24 +365,40 @@ class BacktestEngine:
                 freq='D'
             )
             all_dates = [d for d in all_dates if d.weekday() < 5]  # Business days only
+            all_dates = pd.DatetimeIndex(all_dates)
             
             # Create portfolio value series
             portfolio_values = pd.Series(index=all_dates, dtype=float)
             portfolio_values.iloc[0] = initial_capital
             
-            # Update based on trades
-            current_value = initial_capital
-            for _, trade in trades_df.iterrows():
-                date = pd.to_datetime(trade['date'])
-                if 'portfolio_value' in trade and pd.notna(trade['portfolio_value']):
-                    current_value = trade['portfolio_value']
+            # Calculate cumulative P&L from closed trades
+            closed_trades = trades_df[trades_df['action'] == 'CLOSE'].copy()
+            if not closed_trades.empty and 'pnl' in closed_trades.columns:
+                closed_trades['date'] = pd.to_datetime(closed_trades['date'])
+                closed_trades = closed_trades.sort_values('date')
+                closed_trades['cumulative_pnl'] = closed_trades['pnl'].cumsum()
                 
-                if date in portfolio_values.index:
-                    portfolio_values.loc[date] = current_value
-            
-            # Forward fill portfolio values
-            portfolio_values.ffill(inplace=True)
-            portfolio_values.fillna(initial_capital, inplace=True)
+                # Create a series of cumulative P&L by date
+                cumulative_pnl = pd.Series(index=all_dates, dtype=float)
+                cumulative_pnl.iloc[0] = 0.0
+                
+                # Fill in cumulative P&L on trade dates
+                for _, trade in closed_trades.iterrows():
+                    trade_date = pd.to_datetime(trade['date']).normalize()
+                    # Find closest date in all_dates
+                    if trade_date in all_dates:
+                        idx = all_dates.get_loc(trade_date)
+                        cumulative_pnl.iloc[idx] = trade['cumulative_pnl']
+                
+                # Forward fill cumulative P&L
+                cumulative_pnl.ffill(inplace=True)
+                cumulative_pnl.fillna(0.0, inplace=True)
+                
+                # Portfolio value = initial capital + cumulative P&L
+                portfolio_values = initial_capital + cumulative_pnl
+            else:
+                # No closed trades, portfolio value stays constant
+                portfolio_values[:] = initial_capital
             
             # Calculate returns
             daily_returns = portfolio_values.pct_change().dropna()

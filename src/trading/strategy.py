@@ -385,3 +385,5 @@ class PortfolioManager:
             if pos['shares1'] != 0 or pos['shares2'] != 0
         ]
 
+
+
