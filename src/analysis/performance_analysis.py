@@ -310,7 +310,7 @@ class PerformanceAnalyzer:
         
         # Monthly returns
         if 'date' in closed_trades.columns:
-            closed_trades['date'] = pd.to_datetime(closed_trades['date'])
+            closed_trades['date'] = pd.to_datetime(closed_trades['date'], utc=True).dt.tz_localize(None)
             monthly_pnl = closed_trades.groupby(closed_trades['date'].dt.to_period('M'))['pnl'].sum()
             axes[1, 1].bar(range(len(monthly_pnl)), monthly_pnl.values, alpha=0.7)
             axes[1, 1].axhline(y=0, color='r', linestyle='--', alpha=0.5)
