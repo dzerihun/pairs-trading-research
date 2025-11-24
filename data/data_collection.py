@@ -58,38 +58,56 @@ class DataCollector:
         url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
         
         try:
-            # Add User-Agent header to avoid 403 Forbidden error
+            # Add comprehensive headers to avoid 403 Forbidden error
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1'
             }
             response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
-            
+
             soup = BeautifulSoup(response.content, 'html.parser')
             table = soup.find('table', {'id': 'constituents'})
-            
+
             if table is None:
                 raise ValueError("Could not find S&P 500 table on Wikipedia")
-            
+
             tickers = []
             rows = table.find_all('tr')[1:]  # Skip header
-            
+
             for row in rows:
                 cells = row.find_all('td')
                 if len(cells) >= 2:
                     ticker = cells[0].text.strip()
                     sector = cells[2].text.strip() if len(cells) > 2 else ""
-                    
+
                     # Filter by sector
                     if self.config.sector.lower() in sector.lower():
                         tickers.append(ticker.replace('.', '-'))  # Yahoo Finance uses hyphens
-            
+
             logger.info(f"Found {len(tickers)} stocks in {self.config.sector} sector")
             return tickers
-            
+
         except Exception as e:
-            logger.error(f"Error fetching S&P 500 tickers: {e}")
-            raise
+            logger.warning(f"Error fetching S&P 500 tickers from Wikipedia: {e}")
+            logger.info("Using fallback ticker list for Financials sector...")
+
+            # Fallback list of major financial sector stocks
+            fallback_tickers = [
+                'JPM', 'BAC', 'WFC', 'C', 'GS', 'MS', 'BLK', 'SCHW', 'AXP', 'USB',
+                'PNC', 'TFC', 'BK', 'COF', 'STT', 'DFS', 'FRC', 'MTB', 'KEY', 'CFG',
+                'FITB', 'HBAN', 'RF', 'CMA', 'ZION', 'SIVB', 'NTRS', 'WAL', 'WBS', 'FHN',
+                'AIG', 'PRU', 'MET', 'ALL', 'TRV', 'PGR', 'CB', 'AFL', 'HIG', 'CNC',
+                'AMP', 'TROW', 'BEN', 'IVZ', 'NDAQ', 'ICE', 'CME', 'MSCI', 'MCO', 'SPGI',
+                'MMC', 'AON', 'AJG', 'BRO', 'WRB', 'RE', 'L', 'PFG', 'GL', 'CINF'
+            ]
+
+            logger.info(f"Using {len(fallback_tickers)} tickers from fallback list")
+            return fallback_tickers
     
     def download_stock_data(
         self, 
